@@ -364,11 +364,7 @@ inline pvac::Edge read_edge(Reader& r) {
 }
 
 inline std::vector<uint8_t> serialize_cipher(const pvac::Cipher& C) {
-    // ! check as well (next week)
-      validate_cipher_structure(C);
-
-
-
+    validate_cipher_structure(C);
     Writer w;
     w.header(TAG_CIPHER);
     w.u64(C.slots);

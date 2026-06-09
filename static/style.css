@@ -648,14 +648,16 @@ td {
 .back-link:hover { color: #3B567F; }
 
 .msg-box {
-  background: #F6F7F9;
-  border: 1px solid #E5E9EF;
-  padding: 8px;
-  margin: 12px 0 8px;
-  font-size: 11px;
-  word-break: break-all;
-  white-space: pre-wrap;
-  color: #3B567F;
+background: #F6F7F9;
+    border: 1px solid #E5E9EF;
+    padding: 8px;
+    margin: 12px 0 8px;
+    margin-left: 12px;
+    margin-right: 12px;
+    font-size: 11px;
+    word-break: break-all;
+    white-space: pre-wrap;
+    color: #3B567F;
 }
 
 @media (max-width: 700px) {
@@ -1371,3 +1373,6 @@ td {
   background: #3B567F; color: #fff; border-color: #3B567F;
 }
 .modal-btn-primary:hover { background: #2C4060; }
+.acct-btn { background: #E5E9EF; }
+.acct-btn:hover { background: #D0D7E2; }
+.account-card:hover { background: #2A3F5F; color: #fff; }

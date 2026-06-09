@@ -29,6 +29,11 @@
 #include <string>
 #include <vector>
 #include <atomic>
+
+
+
+    #include <mutex>
+    #include <shared_mutex>
 #include <memory>
 #include "lib/json.hpp"
 
@@ -48,6 +53,8 @@ class RpcClient {
     bool ssl_;
     int port_;
     std::atomic<int> id_{0};
+    mutable std::shared_mutex url_mtx_;
+    static constexpr std::size_t max_body = 64u * 1024u * 1024u;
 
     void parse_url(const std::string& url) {
         std::string u = url;
@@ -78,7 +85,7 @@ class RpcClient {
 public:
     RpcClient() : path_("/rpc"), ssl_(true), port_(443) {}
     explicit RpcClient(const std::string& url) { parse_url(url); }
-    void set_url(const std::string& url) { parse_url(url); }
+        void set_url(const std::string& url) { std::unique_lock<std::shared_mutex> lk(url_mtx_); parse_url(url); }
 
     RpcResult call(const std::string& method,
                    const nlohmann::json& params = nlohmann::json::array(),
@@ -90,21 +97,34 @@ public:
         req["id"] = ++id_;
         std::string body = req.dump();
         httplib::Headers hdrs = {{"Content-Type", "application/json"}};
-        if (ssl_) {
-            httplib::SSLClient cli(host_, port_);
+            
+            std::string host, path;
+            bool ssl;
+            int port;
+            {
+                std::shared_lock<std::shared_mutex> lk(url_mtx_);
+                host = host_;
+                path = path_;
+                ssl = ssl_;
+                port = port_;
+            }
+            if (ssl) {
+            httplib::SSLClient cli(host, port);
             cli.set_connection_timeout(timeout_sec, 0);
             cli.set_read_timeout(timeout_sec, 0);
             if (cli.ssl_context()) SSL_CTX_set_default_verify_paths(cli.ssl_context());
             cli.enable_server_certificate_verification(true);
-            auto res = cli.Post(path_, hdrs, body, "application/json");
+            auto res = cli.Post(path, hdrs, body, "application/json");
             if (!res) return {false, {}, "connection failed"};
+            if (res->body.size() > max_body) return {false, {}, "rpc response too large"};
             return parse_response(res->body);
         } else {
-            httplib::Client cli(host_, port_);
+            httplib::Client cli(host, port);
             cli.set_connection_timeout(timeout_sec, 0);
             cli.set_read_timeout(timeout_sec, 0);
-            auto res = cli.Post(path_, hdrs, body, "application/json");
+            auto res = cli.Post(path, hdrs, body, "application/json");
             if (!res) return {false, {}, "connection failed"};
+            if (res->body.size() > max_body) return {false, {}, "rpc response too large"};
             return parse_response(res->body);
         }
     }
@@ -638,6 +658,8 @@ public:
             cli.enable_server_certificate_verification(true);
             auto r = cli.Post(path_, hdrs, body, "application/json");
             if (!r) { for (auto& o : out) o.error = "connection failed"; return out; }
+
+             if (r->body.size() > max_body) { for (auto& o : out) o.error = "rpc response too large"; return out; }
             resp_body = r->body;
         } else {
             httplib::Client cli(host_, port_);
@@ -645,6 +667,9 @@ public:
             cli.set_read_timeout(timeout_sec, 0);
             auto r = cli.Post(path_, hdrs, body, "application/json");
             if (!r) { for (auto& o : out) o.error = "connection failed"; return out; }
+
+            if (r->body.size() > max_body) { for (auto& o : out) o.error = "rpc response too large"; return out; }
+
             resp_body = r->body;
         }
         try {

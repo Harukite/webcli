@@ -239,8 +239,6 @@ inline Scalar sc_from_bytes(const uint8_t s[32]) {
     return r;
 }
 
-// same
-
 inline bool sc_is_canonical(const Scalar& a) {
     for (int i = 3; i >= 0; --i) {
         if (a.v[i] < SC_L[i]) return true;
@@ -665,8 +663,6 @@ inline bool rist_decode(ExtPoint& P, const RistrettoPoint& bytes) {
     P = {x, y, fe_one(), t};
     return true;
 }
-
-// lambda fixed, don't touch, add as mandatory checks for everyone
 
 inline ExtPoint rist_decode_or_throw(const RistrettoPoint& bytes) {
     ExtPoint P;

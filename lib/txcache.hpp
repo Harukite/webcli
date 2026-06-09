@@ -28,6 +28,8 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <mutex>
+#include <shared_mutex>
 #include <leveldb/db.h>
 #include <leveldb/write_batch.h>
 #include "json.hpp"
@@ -35,8 +37,9 @@
 class TxCache {
     leveldb::DB* db_ = nullptr;
     std::string path_;
-public:
-    bool open(const std::string& path) {
+    mutable std::shared_mutex mtx_;
+
+    bool open_u(const std::string& path) {
         path_ = path;
         leveldb::Options opts;
         opts.create_if_missing = true;
@@ -44,10 +47,33 @@ public:
         return st.ok();
     }
 
-    void close() { delete db_; db_ = nullptr; path_.clear(); }
-    ~TxCache() { close(); }
+    void close_u() { delete db_; db_ = nullptr; path_.clear(); }
+
+    std::string get_u(const std::string& key) {
+        std::string val;
+        if (db_ && db_->Get(leveldb::ReadOptions(), key, &val).ok()) return val;
+        return "";
+    }
+
+    void put_u(const std::string& key, const std::string& val) {
+        if (db_) db_->Put(leveldb::WriteOptions(), key, val);
+    }
+
+public:
+    bool open(const std::string& path) {
+        std::unique_lock<std::shared_mutex> lk(mtx_);
+        return open_u(path);
+    }
+
+    void close() {
+        std::unique_lock<std::shared_mutex> lk(mtx_);
+        close_u();
+    }
+
+    ~TxCache() { close_u(); }
 
     leveldb::DB* detach() {
+        std::unique_lock<std::shared_mutex> lk(mtx_);
         leveldb::DB* db = db_;
         db_ = nullptr;
         path_.clear();
@@ -55,10 +81,11 @@ public:
     }
 
     void clear() {
+        std::unique_lock<std::shared_mutex> lk(mtx_);
         std::string p = path_;
-        close();
+        close_u();
         if (!p.empty()) leveldb::DestroyDB(p, leveldb::Options());
-        if (!p.empty()) open(p);
+        if (!p.empty()) open_u(p);
     }
 
     void ensure_rpc(const std::string& rpc_url) {
@@ -84,13 +111,13 @@ public:
     }
 
     void put(const std::string& key, const std::string& val) {
-        if (db_) db_->Put(leveldb::WriteOptions(), key, val);
+        std::shared_lock<std::shared_mutex> lk(mtx_);
+        put_u(key, val);
     }
 
     std::string get(const std::string& key) {
-        std::string val;
-        if (db_ && db_->Get(leveldb::ReadOptions(), key, &val).ok()) return val;
-        return "";
+        std::shared_lock<std::shared_mutex> lk(mtx_);
+        return get_u(key);
     }
 
     int get_total(const std::string& addr) {
@@ -105,14 +132,16 @@ public:
     void store_tx(const std::string& addr, const nlohmann::json& tx) {
         std::string hash = tx.value("hash", "");
         if (hash.empty() || addr.empty()) return;
-        put("tx:" + hash, tx.dump());
+        std::shared_lock<std::shared_mutex> lk(mtx_);
+        put_u("tx:" + hash, tx.dump());
         double ts = tx.value("timestamp", 0.0);
         char idx[128];
         snprintf(idx, sizeof(idx), "idx:%s:%020.6f:%s", addr.c_str(), 9999999999.0 - ts, hash.c_str());
-        put(idx, hash);
+        put_u(idx, hash);
     }
 
     void store_txs(const std::string& addr, const nlohmann::json& txs) {
+        std::shared_lock<std::shared_mutex> lk(mtx_);
         if (!db_) return;
         leveldb::WriteBatch batch;
         for (auto& tx : txs) {
@@ -129,6 +158,7 @@ public:
 
     nlohmann::json load_page(const std::string& addr, int limit, int offset) {
         nlohmann::json result = nlohmann::json::array();
+        std::shared_lock<std::shared_mutex> lk(mtx_);
         if (!db_ || addr.empty()) return result;
         std::string prefix = "idx:" + addr + ":";
         auto it = db_->NewIterator(leveldb::ReadOptions());
@@ -150,6 +180,7 @@ public:
     }
 
     int count_idx(const std::string& addr) {
+        std::shared_lock<std::shared_mutex> lk(mtx_);
         if (!db_ || addr.empty()) return 0;
         std::string prefix = "idx:" + addr + ":";
         int n = 0;
@@ -163,9 +194,13 @@ public:
     }
 
     bool has_tx(const std::string& hash) {
+        std::shared_lock<std::shared_mutex> lk(mtx_);
         std::string val;
         return db_ && db_->Get(leveldb::ReadOptions(), "tx:" + hash, &val).ok();
     }
 
-    bool is_open() const { return db_ != nullptr; }
+    bool is_open() const {
+        std::shared_lock<std::shared_mutex> lk(mtx_);
+        return db_ != nullptr;
+    }
 };

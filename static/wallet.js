@@ -699,8 +699,8 @@ function ideRenderProjectBar() {
   }
   bar.style.display = 'flex';
   bar.innerHTML = '<span class="ide-project-name">' + escapeHtml(_ideProject.name) + '</span>' +
-    '<button class="ide-btn" onclick="ideCloseProject()" title="close project"><span class="ide-icon ico-close"></span></button>' +
-    '<button class="ide-btn" onclick="ideExportZip()" title="export zip"><span class="ide-icon ico-download"></span></button>';
+    '<button class="ide-btn" data-action="ideCloseProject" title="close project"><span class="ide-icon ico-close"></span></button>' +
+    '<button class="ide-btn" data-action="ideExportZip" title="export zip"><span class="ide-icon ico-download"></span></button>';
 }
 
 function ideRenderFileTree() {
@@ -728,16 +728,16 @@ function ideRenderFileTree() {
 
 
 
-  var html = '<div class="ide-tree-header">files <button class="ide-btn-small" onclick="ideNewFile()"><span class="ide-icon ico-plus"></span></button>' +
-    '<label class="ide-btn-small" style="cursor:pointer" title="import .aml files"><span class="ide-icon ico-upload"></span><input type="file" accept=".aml,.json,.aml-project.json" multiple style="display:none" onchange="ideImportFiles(this.files)"></label>' +
-    '<label class="ide-btn-small" style="cursor:pointer" title="import folder"><span class="ide-icon ico-folder-import"></span><input type="file" webkitdirectory style="display:none" onchange="ideImportFiles(this.files)"></label></div>';
+  var html = '<div class="ide-tree-header">files <button class="ide-btn-small" data-action="ideNewFile"><span class="ide-icon ico-plus"></span></button>' +
+    '<label class="ide-btn-small" style="cursor:pointer" title="import .aml files"><span class="ide-icon ico-upload"></span><input type="file" accept=".aml,.json,.aml-project.json" multiple style="display:none" data-change="importFiles"></label>' +
+    '<label class="ide-btn-small" style="cursor:pointer" title="import folder"><span class="ide-icon ico-folder-import"></span><input type="file" webkitdirectory style="display:none" data-change="importFiles"></label></div>';
   
   
   
   
     rootFiles.forEach(function(p) {
     var cls = p === _ideActiveFile ? ' active' : '';
-    html += '<div class="ide-tree-file' + cls + '" onclick="ideOpenFile(\'' + escapeHtml(p) + '\')" oncontextmenu="ideFileMenu(event,\'' + escapeHtml(p) + '\')">' +
+    html += '<div class="ide-tree-file' + cls + '" data-action="ideOpenFile" data-arg="' + escapeAttr(p) + '" data-context="fileMenu">' +
       '<span class="ide-icon ide-file-icon"></span>' + escapeHtml(p) + '</div>';
   });
   Object.keys(dirs).sort().forEach(function(dir) {
@@ -745,7 +745,7 @@ function ideRenderFileTree() {
     dirs[dir].sort().forEach(function(p) {
       var fname = p.substring(p.indexOf('/') + 1);
       var cls = p === _ideActiveFile ? ' active' : '';
-      html += '<div class="ide-tree-file ide-tree-nested' + cls + '" onclick="ideOpenFile(\'' + escapeHtml(p) + '\')" oncontextmenu="ideFileMenu(event,\'' + escapeHtml(p) + '\')">' +
+      html += '<div class="ide-tree-file ide-tree-nested' + cls + '" data-action="ideOpenFile" data-arg="' + escapeAttr(p) + '" data-context="fileMenu">' +
         '<span class="ide-icon ide-file-icon"></span>' + escapeHtml(fname) + '</div>';
     });
   });
@@ -764,9 +764,9 @@ function ideRenderTabs() {
   _ideOpenTabs.forEach(function(path) {
     var name = path.indexOf('/') >= 0 ? path.substring(path.lastIndexOf('/') + 1) : path;
     var cls = path === _ideActiveFile ? ' active' : '';
-    html += '<div class="ide-tab' + cls + '" onclick="ideOpenFile(\'' + escapeHtml(path) + '\')">' +
+    html += '<div class="ide-tab' + cls + '" data-action="ideOpenFile" data-arg="' + escapeAttr(path) + '">' +
       escapeHtml(name) +
-      '<span class="ide-tab-close" onclick="event.stopPropagation();ideCloseTab(\'' + escapeHtml(path) + '\')">×</span>' +
+      '<span class="ide-tab-close" data-action="ideCloseTab" data-arg="' + escapeAttr(path) + '">×</span>' +
       '</div>';
   });
   bar.innerHTML = html;
@@ -890,13 +890,13 @@ async function showProjectPicker() {
   var html = '<div class="ide-picker-title">projects</div>';
   html += '<div class="ide-picker-section-label">new project</div>';
   html += '<div class="ide-picker-actions">';
-  html += '<button class="action-btn" onclick="ideNewProject(\'empty\')"><span class="tpl-label">Blank</span><span class="tpl-desc">empty contract</span></button>';
-  html += '<button class="action-btn" onclick="ideNewProject(\'token\')"><span class="tpl-label">OCS-01 Token</span><span class="tpl-desc">fungible token</span></button>';
-  html += '<button class="action-btn" onclick="ideNewProject(\'vault\')"><span class="tpl-label">Vault</span><span class="tpl-desc">escrow contract</span></button>';
+  html += '<button class="action-btn" data-action="ideNewProject" data-arg="empty"><span class="tpl-label">Blank</span><span class="tpl-desc">empty contract</span></button>';
+  html += '<button class="action-btn" data-action="ideNewProject" data-arg="token"><span class="tpl-label">OCS-01 Token</span><span class="tpl-desc">fungible token</span></button>';
+  html += '<button class="action-btn" data-action="ideNewProject" data-arg="vault"><span class="tpl-label">Vault</span><span class="tpl-desc">escrow contract</span></button>';
   html += '</div>';
   html += '<div class="ide-picker-import">';
-  html += '<label class="action-btn" style="cursor:pointer"><span class="ide-icon ico-upload"></span> import files<input type="file" accept=".json,.aml-project.json,.aml" multiple style="display:none" onchange="ideImportFiles(this.files)"></label>';
-  html += '<label class="action-btn" style="cursor:pointer"><span class="ide-icon ico-folder-import"></span> import folder<input type="file" webkitdirectory style="display:none" onchange="ideImportFiles(this.files)"></label>';
+  html += '<label class="action-btn" style="cursor:pointer"><span class="ide-icon ico-upload"></span> import files<input type="file" accept=".json,.aml-project.json,.aml" multiple style="display:none" data-change="importFiles"></label>';
+  html += '<label class="action-btn" style="cursor:pointer"><span class="ide-icon ico-folder-import"></span> import folder<input type="file" webkitdirectory style="display:none" data-change="importFiles"></label>';
   html += '</div>';
 
 
@@ -904,10 +904,10 @@ async function showProjectPicker() {
     html += '<div class="ide-picker-list">';
     html += '<div class="ide-picker-list-title">recent</div>';
     projects.forEach(function(p) {
-      html += '<div class="ide-picker-item" onclick="ideLoadProject(\'' + p.id + '\')">' +
+      html += '<div class="ide-picker-item" data-action="ideLoadProject" data-arg="' + escapeAttr(p.id) + '">' +
         '<span class="ide-picker-name">' + escapeHtml(p.name) + '</span>' +
         '<span class="ide-picker-date">' + new Date(p.created).toLocaleDateString() + '</span>' +
-        '<button class="ide-btn-small" onclick="event.stopPropagation();ideDeleteProject(\'' + p.id + '\')" title="delete"><span class="ide-icon ico-delete"></span></button>' +
+        '<button class="ide-btn-small" data-action="ideDeleteProject" data-arg="' + escapeAttr(p.id) + '" title="delete"><span class="ide-icon ico-delete"></span></button>' +
         '</div>';
     });
     html += '</div>';
@@ -1233,8 +1233,8 @@ async function api(method, path, body) {
   var text = await res.text();
   if (!text || text.length === 0) throw new Error('empty response from RPC (possible timeout)');
   var j;
-  try { j = JSON.parse(text); } catch (e) { throw new Error('invalid server response: ' + text.substring(0, 200)); }
-  if (!res.ok) throw new Error(j.error || j.message || 'request failed');
+  try { j = JSON.parse(text); } catch (e) { throw new Error('invalid server response: ' + escapeHtml(text.substring(0, 200))); }
+  if (!res.ok) throw new Error(escapeHtml(j.error || j.message || 'request failed'));
   return j;
 }
 
@@ -1417,7 +1417,7 @@ function addrLink(addr) {
 function txLink(hash) {
   if (!hash) return '<span class="gray">-</span>';
   if (!/^[a-f0-9]{64}$/.test(hash)) return '<span class="mono gray">' + escapeHtml(hash) + '</span>';
-  return '<a class="mono hash" href="javascript:void(0)" onclick="showTx(\'' + hash + '\')">' + short(hash) + '</a>';
+  return '<a class="mono hash" href="#" data-action="showTx" data-arg="' + hash + '" data-prevent="1">' + short(hash) + '</a>';
 }
 
 function opTag(op) {
@@ -1457,7 +1457,7 @@ function validAddr(addr) {
 function logStealth(msg, cls) {
   var el = $('stealth-log');
   if (!el) {
-    var btn = document.querySelector('button[onclick="doStealthSend()"]');
+    var btn = document.querySelector('button[data-action="doStealthSend"]');
     if (!btn) return;
     var row = btn.closest('.action-row') || btn.parentNode;
     el = document.createElement('div');
@@ -1476,7 +1476,7 @@ function clearStealthLog() {
 function logDecrypt(msg, cls) {
   var el = $('decrypt-log');
   if (!el) {
-    var btn = document.querySelector('button[onclick="doDecrypt()"]');
+    var btn = document.querySelector('button[data-action="doDecrypt"]');
     if (!btn) return;
     var row = btn.closest('.action-row') || btn.parentNode;
     el = document.createElement('div');
@@ -1529,7 +1529,7 @@ function txRow(tx) {
   h += '<td>' + txLink(tx.hash) + '</td>';
   h += '<td>' + addrLink(tx.from) + '</td>';
   h += '<td>' + addrLink(toAddr) + '</td>';
-  h += '<td class="mono amount' + a.cls + '">' + a.amt + '</td>';
+  h += '<td class="mono amount' + a.cls + '">' + escapeHtml(a.amt) + '</td>';
   h += '<td>' + txStatusTag(st) + '</td>';
   h += '<td class="gray">' + fmtDate(tx.timestamp) + '</td>';
   h += '</tr>';
@@ -1544,7 +1544,7 @@ function txCardHtml(tx) {
   c += '<div class="card-row"><span class="card-label">tx</span><span class="card-val">' + txLink(tx.hash) + '</span></div>';
   c += '<div class="card-row"><span class="card-label">from</span><span class="card-val">' + addrLink(tx.from) + '</span></div>';
   c += '<div class="card-row"><span class="card-label">to</span><span class="card-val">' + addrLink(toAddr) + '</span></div>';
-  c += '<div class="card-row"><span class="card-label">amount</span><span class="card-val mono amount' + a.cls + '">' + a.amt + '</span></div>';
+  c += '<div class="card-row"><span class="card-label">amount</span><span class="card-val mono amount' + a.cls + '">' + escapeHtml(a.amt) + '</span></div>';
   c += '<div class="card-row"><span class="card-label">status</span><span class="card-val">' + txStatusTag(st) + '</span></div>';
   c += '<div class="card-row"><span class="card-label">time</span><span class="card-val gray">' + fmtDate(tx.timestamp) + '</span></div>';
   c += '</div>';
@@ -1563,8 +1563,8 @@ async function showTx(hash) {
 
 
     var fullHash = res.hash || hash;
-    var explorerLink = _explorerUrl + '/tx.html?hash=' + fullHash;
-    h += '<tr><td>hash</td><td class="mono">' + fullHash + ' <a href="' + explorerLink + '" target="_blank" style="font-size:10px;color:#8C9DB6;margin-left:4px">explorer</a></td></tr>';
+    var explorerLink = _explorerUrl + '/tx.html?hash=' + encodeURIComponent(fullHash);
+    h += '<tr><td>hash</td><td class="mono">' + escapeHtml(fullHash) + ' <a href="' + escapeHtml(explorerLink) + '" target="_blank" style="font-size:10px;color:#8C9DB6;margin-left:4px">explorer</a></td></tr>';
     h += '<tr><td>status</td><td>' + txStatusTag(st) + '</td></tr>';
     if (res.reject_reason) h += '<tr><td>reason</td><td class="result-error">' + escapeHtml(res.reject_reason) + '</td></tr>';
       h += '<tr><td>from</td><td>' + addrLink(res.from || '') + '</td></tr>';
@@ -1580,8 +1580,8 @@ async function showTx(hash) {
     if (res.ou) h += '<tr><td>ou (fee)</td><td class="mono">' + fmtOct(res.ou) + '</td></tr>';
     h += '<tr><td>time</td><td>' + fmtDate(res.timestamp) + '</td></tr>';
 
-    if (res.signature) h += '<tr><td>signature</td><td class="mono">' + res.signature + '</td></tr>';
-    if (res.public_key) h += '<tr><td>public key</td><td class="mono">' + res.public_key + '</td></tr>';
+    if (res.signature) h += '<tr><td>signature</td><td class="mono">' + escapeHtml(res.signature) + '</td></tr>';
+    if (res.public_key) h += '<tr><td>public key</td><td class="mono">' + escapeHtml(res.public_key) + '</td></tr>';
     h += '</table>';
     if (res.message && res.message !== 'null' && res.message !== '') {
       h += '<div class="section-title">message</div>';
@@ -1589,7 +1589,7 @@ async function showTx(hash) {
     }
     $('tx-detail').innerHTML = h;
   } catch (e) {
-    $('tx-detail').innerHTML = '<div class="error-box">' + e.message + '</div>';
+    $('tx-detail').innerHTML = '<div class="error-box">' + escapeHtml(e.message) + '</div>';
   }
 }
 
@@ -1597,6 +1597,14 @@ function escapeHtml(s) {
   var d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+function escapeAttr(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function dashTxLimit() {
@@ -1618,7 +1626,7 @@ function renderDashTxs(txs) {
   h += '</table>';
   cards += '</div>';
   $('dash-txs').innerHTML = h + cards;
-  $('dash-more').innerHTML = '<div class="dash-more-row"><a href="#" onclick="switchView(\'history\');return false">view full history</a></div>';
+  $('dash-more').innerHTML = '<div class="dash-more-row"><a href="#" data-action="switchView" data-arg="history" data-prevent="1">view full history</a></div>';
 }
 
 async function loadDashboard() {
@@ -1669,7 +1677,9 @@ async function doSend() {
   if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) { showResult('send-result', false, 'invalid amount'); return; }
   if (!validateFee('send-fee', 'standard')) { feeError('send-result', 'send-fee', 'standard'); return; }
   try {
-    var body = { to: to, amount: amount };
+    var pin = await modalPrompt('confirm send', 'enter PIN to send ' + amount + ' oct to ' + to, { pin: true, btnText: 'send' });
+    if (!pin) { showResult('send-result', false, 'send cancelled'); return; }
+    var body = { to: to, amount: amount, pin: pin };
     if (msg) body.message = msg;
     var fee = $('send-fee') ? $('send-fee').value.trim() : '';
     if (fee) body.ou = fee;
@@ -1711,10 +1721,12 @@ async function doKeySwitch() {
     $('modal-overlay').style.display = 'none';
   };
   $('ks-confirm').onclick = async function() {
+    var pin = await modalPrompt('confirm key switch', 'enter PIN to switch encryption key', { pin: true, btnText: 'switch' });
+    if (!pin) return;
     $('ks-confirm').disabled = true;
     $('ks-confirm').textContent = 'submitting...';
     try {
-      var res = await api('POST', '/key_switch', {});
+      var res = await api('POST', '/key_switch', { pin: pin });
       var txHash = res.hash || res.tx_hash || '';
       invalidateCurrentAddressState();
       var h2 = '<div class="result-msg result-ok" style="margin:20px 0;word-break:break-all">key switch submitted</div>';
@@ -1723,7 +1735,7 @@ async function doKeySwitch() {
       $('modal-result').innerHTML = h2;
       $('ks-close').onclick = function() { $('modal-overlay').style.display = 'none'; fetchBalance(); };
     } catch (e) {
-      $('modal-result').innerHTML = '<div class="result-msg result-error" style="margin:20px 0;word-break:break-all">' + e.message + '</div>';
+      $('modal-result').innerHTML = '<div class="result-msg result-error" style="margin:20px 0;word-break:break-all">' + escapeHtml(e.message) + '</div>';
     }
   };
 }
@@ -1734,7 +1746,9 @@ async function doEncrypt() {
   if (!amount || !/^\d+(\.\d{1,6})?$/.test(amount) || parseFloat(amount) <= 0) { showResult('enc-result', false, 'invalid amount'); return; }
   if (!validateFee('enc-fee', 'encrypt')) { feeError('enc-result', 'enc-fee', 'encrypt'); return; }
   try {
-    var encBody = { amount: amount };
+    var pin = await modalPrompt('confirm encrypt', 'enter PIN to encrypt ' + amount + ' oct', { pin: true, btnText: 'encrypt' });
+    if (!pin) { showResult('enc-result', false, 'encrypt cancelled'); return; }
+    var encBody = { amount: amount, pin: pin };
     var encFee = $('enc-fee') ? $('enc-fee').value.trim() : '';
     if (encFee) encBody.ou = encFee;
     var res = await api('POST', '/encrypt', encBody);
@@ -1762,13 +1776,15 @@ async function doDecrypt() {
   logDecrypt('amount: ' + amount + ' oct', 'log-info');
   logDecrypt('', '');
   try {
-    var decBody = { amount: amount };
+    var pin = await modalPrompt('confirm decrypt', 'enter PIN to decrypt ' + amount + ' oct', { pin: true, btnText: 'decrypt' });
+    if (!pin) { logDecrypt('decrypt cancelled', 'log-err'); return; }
+    var decBody = { amount: amount, pin: pin };
     var decFee = $('dec-fee') ? $('dec-fee').value.trim() : '';
     if (decFee) decBody.ou = decFee;
     var res = await api('POST', '/decrypt', decBody);
     invalidateCurrentAddressState();
     if (res.steps) {
-      for (var i = 0; i < res.steps.length; i++) logDecrypt(res.steps[i], 'log-info');
+      for (var i = 0; i < res.steps.length; i++) logDecrypt(escapeHtml(res.steps[i]), 'log-info');
     }
     logDecrypt('', '');
     logDecrypt('decrypt complete', 'log-ok');
@@ -1806,13 +1822,15 @@ async function doStealthSend() {
   logStealth('amount: ' + amount + ' oct', 'log-info');
   logStealth('', '');
   try {
-    var stBody = { to: to, amount: amount };
+    var pin = await modalPrompt('confirm stealth send', 'enter PIN to send ' + amount + ' oct to ' + to, { pin: true, btnText: 'send' });
+    if (!pin) { logStealth('stealth send cancelled', 'log-err'); return; }
+    var stBody = { to: to, amount: amount, pin: pin };
     var stFee = $('stealth-fee') ? $('stealth-fee').value.trim() : '';
     if (stFee) stBody.ou = stFee;
     var res = await api('POST', '/stealth/send', stBody);
     invalidateCurrentAddressState();
     if (res.steps) {
-      for (var i = 0; i < res.steps.length; i++) logStealth(res.steps[i], 'log-info');
+      for (var i = 0; i < res.steps.length; i++) logStealth(escapeHtml(res.steps[i]), 'log-info');
     }
     logStealth('', '');
     logStealth('stealth send complete', 'log-ok');
@@ -1871,11 +1889,11 @@ async function doStealthScan() {
     }
     updateStealthBadge(unclaimed);
     if (unclaimed > 0) {
-      h += '<div class="claim-row"><button class="action-btn" onclick="claimSelected()">claim selected</button></div>';
+      h += '<div class="claim-row"><button class="action-btn" data-action="claimSelected">claim selected</button></div>';
     }
     $('stealth-outputs').innerHTML = h;
   } catch (e) {
-    $('stealth-outputs').innerHTML = '<div class="error-box">' + e.message + '</div>';
+    $('stealth-outputs').innerHTML = '<div class="error-box">' + escapeHtml(e.message) + '</div>';
   }
 }
 
@@ -1897,7 +1915,7 @@ async function doStealthClaim(ids) {
     if (res.results) {
       for (var i = 0; i < res.results.length; i++) {
         var r = res.results[i];
-        logStealth(r.id + ': ' + (r.ok ? 'ok' : 'failed - ' + (r.error || '')), r.ok ? 'log-ok' : 'log-err');
+        logStealth(escapeHtml(r.id) + ': ' + (r.ok ? 'ok' : 'failed - ' + escapeHtml(r.error || '')), r.ok ? 'log-ok' : 'log-err');
         if (r.ok) _pendingClaimIds[String(r.id)] = true;
       }
     }
@@ -2629,7 +2647,7 @@ async function loadTokens() {
     _tokensLoaded = true;
     hydrateTokenMaps(_tokens);
   } catch (e) {
-    if (!restored) $('tok-list').innerHTML = '<div class="error-box">' + e.message + '</div>';
+    if (!restored) $('tok-list').innerHTML = '<div class="error-box">' + escapeHtml(e.message) + '</div>';
     loadTokenTxs();
     return;
   }
@@ -2697,7 +2715,7 @@ function renderTokenList() {
     h += '<span class="mono gray">' + short(t.address) + '</span>';
     h += '</div>';
     h += '<div class="token-actions">';
-    h += '<button class="token-btn" onclick="openTokenTransfer(' + i + ')">transfer</button>';
+    h += '<button class="token-btn" data-action="openTokenTransfer" data-arg="' + i + '">transfer</button>';
     h += '</div>';
     h += '</div>';
   }
@@ -2748,7 +2766,9 @@ async function doTokenTransfer() {
   if (!rawAmount) { showResult('tok-transfer-result', false, 'invalid amount'); return; }
   if (!validateFee('tok-fee', 'call')) { feeError('tok-transfer-result', 'tok-fee', 'call'); return; }
   try {
-    var tokBody = { token: _selectedToken.address, to: to, amount: rawAmount };
+    var pin = await modalPrompt('confirm token transfer', 'enter PIN to transfer ' + humanAmt + ' to ' + to, { pin: true, btnText: 'transfer' });
+    if (!pin) { showResult('tok-transfer-result', false, 'transfer cancelled'); return; }
+    var tokBody = { token: _selectedToken.address, to: to, amount: rawAmount, pin: pin };
     var tokFee = $('tok-fee') ? $('tok-fee').value.trim() : '';
     if (tokFee) tokBody.ou = tokFee;
     var res = await api('POST', '/token/transfer', tokBody);
@@ -2792,7 +2812,7 @@ async function loadHistory() {
       } else {
         renderHistoryTxs(cachedTxs);
         if (cached.response.has_more) {
-          $('history-more').innerHTML = '<button class="load-more" onclick="loadMoreHistory()">load more</button>';
+          $('history-more').innerHTML = '<button class="load-more" data-action="loadMoreHistory">load more</button>';
         }
         fetchMissingSymbols(cachedTxs).then(function() { renderHistoryTxs(cachedTxs); });
       }
@@ -2808,12 +2828,12 @@ async function loadHistory() {
     }
     renderHistoryTxs(txs);
     if (res.has_more) {
-      $('history-more').innerHTML = '<button class="load-more" onclick="loadMoreHistory()">load more</button>';
+      $('history-more').innerHTML = '<button class="load-more" data-action="loadMoreHistory">load more</button>';
     }
     fetchMissingSymbols(txs).then(function() { renderHistoryTxs(txs); });
   } catch (e) {
     $('hist-count').textContent = '0';
-    $('history-list').innerHTML = '<div class="error-box">' + e.message + '</div>';
+    $('history-list').innerHTML = '<div class="error-box">' + escapeHtml(e.message) + '</div>';
   }
 }
 
@@ -2862,12 +2882,12 @@ async function loadHistoryAppend() {
     });
     $('hist-count').textContent = String(_historyOffset + txs.length);
     if (res.has_more) {
-      $('history-more').innerHTML = '<button class="load-more" onclick="loadMoreHistory()">load more</button>';
+      $('history-more').innerHTML = '<button class="load-more" data-action="loadMoreHistory">load more</button>';
     } else {
       $('history-more').innerHTML = '';
     }
   } catch (e) {
-    $('history-more').innerHTML = '<div class="error-box">' + e.message + '</div>';
+    $('history-more').innerHTML = '<div class="error-box">' + escapeHtml(e.message) + '</div>';
   }
 }
 
@@ -2877,14 +2897,14 @@ async function showKeys() {
     var res = await api('GET', '/keys');
     var h = '<table class="detail-table">';
     h += '<tr><td>address</td><td class="mono">' + (res.address || '') + '</td></tr>';
-    h += '<tr><td>public key</td><td class="mono">' + (res.public_key || '') + '</td></tr>';
+    h += '<tr><td>public key</td><td class="mono">' + escapeHtml(res.public_key || '') + '</td></tr>';
     h += '<tr><td>view pubkey</td><td class="mono">' + (res.view_pubkey || '-') + '</td></tr>';
-    h += '<tr><td>private key</td><td id="privkey-cell" style="color:#8C9DB6;cursor:pointer" onclick="revealPrivateKeys()">****** (click to reveal)</td></tr>';
-    h += '<tr><td>seed phrase</td><td id="seed-cell" style="color:#8C9DB6' + (res.has_master_seed ? ';cursor:pointer" onclick="revealPrivateKeys()' : '') + '">' + (res.has_master_seed ? '****** (click to reveal)' : 'not set - imported via private key only') + '</td></tr>';
+    h += '<tr><td>private key</td><td id="privkey-cell" style="color:#8C9DB6;cursor:pointer" data-action="revealPrivateKeys">****** (click to reveal)</td></tr>';
+    h += '<tr><td>seed phrase</td><td id="seed-cell" style="color:#8C9DB6' + (res.has_master_seed ? ';cursor:pointer" data-action="revealPrivateKeys' : '') + '">' + (res.has_master_seed ? '****** (click to reveal)' : 'not set - imported via private key only') + '</td></tr>';
     h += '</table>';
     $('keys-table').innerHTML = h;
   } catch (e) {
-    $('keys-table').innerHTML = '<div class="error-box">' + e.message + '</div>';
+    $('keys-table').innerHTML = '<div class="error-box">' + escapeHtml(e.message) + '</div>';
   }
 }
 
@@ -2937,8 +2957,7 @@ async function loadAccountList() {
       el.innerHTML = '<div class="staging-empty">no accounts</div>';
       return;
     }
-    var btnStyle = 'display:inline-block;width:96px;padding:8px;margin:0;background:#E5E9EF;border:none;border-top:1px solid #D0D7E2;border-bottom:1px solid #D0D7E2;margin-right:4px;color:#3B567F;font-family:Tahoma,arial,sans-serif;font-size:11px;font-weight:bold;letter-spacing:1px;cursor:pointer;text-align:center;text-transform:lowercase';
-    var btnHover = 'onmouseenter="this.style.background=\'#D0D7E2\'" onmouseleave="this.style.background=\'#E5E9EF\'"';
+    var btnStyle = 'display:inline-block;width:96px;padding:8px;margin:0;border:none;border-top:1px solid #D0D7E2;border-bottom:1px solid #D0D7E2;margin-right:4px;color:#3B567F;font-family:Tahoma,arial,sans-serif;font-size:11px;font-weight:bold;letter-spacing:1px;cursor:pointer;text-align:center;text-transform:lowercase';
     var html = '<table class="tx-table" style="width:100%;table-layout:fixed"><colgroup>';
     html += '<col style="width:22%">';
     html += '<col style="width:auto">';
@@ -2957,17 +2976,16 @@ async function loadAccountList() {
         }
       }
       var name = a.name || 'unnamed';
-      var escapedName = name.replace(/'/g, "\\'");
       html += '<tr>';
-      html += '<td style="padding:6px 8px;vertical-align:middle;overflow:hidden;text-overflow:ellipsis">' + badge + '<b>' + name + '</b>' + hdLabel + '</td>';
-      html += '<td class="mono" style="padding:6px 8px;font-size:11px;vertical-align:middle;word-break:break-all">' + a.addr + '</td>';
+      html += '<td style="padding:6px 8px;vertical-align:middle;overflow:hidden;text-overflow:ellipsis">' + badge + '<b>' + escapeHtml(name) + '</b>' + hdLabel + '</td>';
+      html += '<td class="mono" style="padding:6px 8px;font-size:11px;vertical-align:middle;word-break:break-all">' + escapeHtml(a.addr) + '</td>';
       html += '<td style="padding:6px 4px;text-align:right;white-space:nowrap;vertical-align:middle">';
       if (!a.active) {
-        html += '<button style="' + btnStyle + '" ' + btnHover + ' onclick="doSwitchAccount(\'' + a.addr + '\')">switch</button>';
+        html += '<button class="acct-btn" style="' + btnStyle + '" data-action="doSwitchAccount" data-arg="' + escapeAttr(a.addr) + '">switch</button>';
       } else {
-        html += '<button style="' + btnStyle + '" ' + btnHover + ' onclick="doChangePinForWallet(\'' + a.addr + '\')">change PIN</button>';
+        html += '<button class="acct-btn" style="' + btnStyle + '" data-action="doChangePinForWallet" data-arg="' + escapeAttr(a.addr) + '">change PIN</button>';
       }
-      html += '<button style="' + btnStyle + '" ' + btnHover + ' onclick="doRenameAccount(\'' + a.addr + '\',\'' + escapedName + '\')">rename</button>';
+      html += '<button class="acct-btn" style="' + btnStyle + '" data-action="renameAccount" data-arg="' + escapeAttr(a.addr) + '" data-name="' + escapeAttr(name) + '">rename</button>';
       html += '</td></tr>';
     }
     html += '</tbody></table>';
@@ -2977,10 +2995,10 @@ async function loadAccountList() {
       var ah = '<div class="action-row" style="gap:6px;flex-wrap:wrap;align-items:center">';
       if (resp.has_master_seed) {
         var idx = resp.next_hd_index || 0;
-        ah += '<button class="action-btn" onclick="doDeriveAccount()">derive #' + idx + '</button>';
+        ah += '<button class="action-btn" data-action="doDeriveAccount">derive #' + idx + '</button>';
         ah += '<span style="color:#8C9DB6;font-size:11px;margin:0 4px">or</span>';
       }
-      ah += '<button class="action-btn" onclick="showImportAnother()">import another wallet</button>';
+      ah += '<button class="action-btn" data-action="showImportAnother">import another wallet</button>';
       ah += '</div>';
       actEl.innerHTML = ah;
     }
@@ -3141,7 +3159,9 @@ async function doSaveSettings() {
   var bridgeSigner = $('settings-bridge-signer').value.trim();
   if (!rpc) { showResult('settings-result', false, 'rpc url required'); return; }
   try {
-    var resp = await api('POST', '/settings', { rpc_url: rpc, explorer_url: explorer, bridge_signer_url: bridgeSigner });
+    var pin = await modalPrompt('confirm settings change', 'enter PIN to change network endpoints', { pin: true, btnText: 'save' });
+    if (!pin) { showResult('settings-result', false, 'settings change cancelled'); return; }
+    var resp = await api('POST', '/settings', { rpc_url: rpc, explorer_url: explorer, bridge_signer_url: bridgeSigner, pin: pin });
     if (explorer) _explorerUrl = explorer.replace(/\/+$/, '');
     try { _rpcHost = new URL(rpc).hostname; } catch(e) { _rpcHost = rpc; }
     if (resp && resp.cache_cleared) {
@@ -3502,17 +3522,16 @@ function showAccountPicker(wallets) {
       : a.file;
     var hdTag = a.hd ? ' | hd' : '';
     var dataAttr = hasAddr
-      ? 'data-addr="' + a.addr + '"'
-      : 'data-file="' + a.file + '"';
-    html += '<div class="account-card" ' + dataAttr + ' onclick="pickWallet(this)" style="cursor:pointer;padding:10px 12px;margin:6px 0;border:1px solid #3B567F;transition:background 0.15s,color 0.15s"';
-    html += ' onmouseenter="this.style.background=\'#2A3F5F\';this.style.color=\'#fff\'" onmouseleave="this.style.background=\'\';this.style.color=\'\'">';
-    html += '<div style="font-weight:600">' + name + '<span style="color:#8C9DB6;font-size:11px">' + hdTag + '</span></div>';
+      ? 'data-addr="' + escapeAttr(a.addr) + '"'
+      : 'data-file="' + escapeAttr(a.file) + '"';
+    html += '<div class="account-card" ' + dataAttr + ' data-action="pickWallet" style="cursor:pointer;padding:10px 12px;margin:6px 0;border:1px solid #3B567F;transition:background 0.15s,color 0.15s">';
+    html += '<div style="font-weight:600">' + escapeHtml(name) + '<span style="color:#8C9DB6;font-size:11px">' + hdTag + '</span></div>';
     html += '<div class="mono" style="font-size:12px;color:#8C9DB6;margin-top:2px">' + sub + '</div>';
     html += '</div>';
   }
   html += '</div>';
   html += '<div style="margin-top:8px;text-align:center">';
-  html += '<a href="#" style="color:#8C9DB6;font-size:12px" onclick="showImportOptions();return false">+ import or create new wallet</a>';
+  html += '<a href="#" style="color:#8C9DB6;font-size:12px" data-action="showImportOptions" data-prevent="1">+ import or create new wallet</a>';
   html += '</div>';
   $('modal-result').innerHTML = html;
   $('modal-overlay').style.display = 'flex';
@@ -3575,5 +3594,44 @@ $('modal-pin-confirm').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') modalFinishSetup();
 });
 
+function wireDelegation() {
+  var actions = {
+    modalShowImport, modalCreate, modalDoImport, modalBack, modalMnemonicDone,
+    modalUnlock, modalBackFromPin, modalFinishSetup, doLogout, doKeySwitch,
+    doSend, doEncrypt, doDecrypt, doStealthSend, doStealthScan, doTokenTransfer,
+    closeTokenTransfer, onLangChange, editorUpdateWithLiveCompile, doCompile,
+    loadTemplate, doPreviewDeploy, doDeploy, doContractCall, doContractView,
+    doFheEncrypt, doFheDecrypt, doContractInfo, doContractReceipt, doVerifyContract,
+    doSaveSettings, doChangePin, goBack, switchView, switchImportTab, switchBottomTab,
+    ideCloseProject, ideExportZip, ideNewFile, ideOpenFile, ideCloseTab, ideNewProject,
+    ideLoadProject, ideDeleteProject, showTx, claimSelected, openTokenTransfer,
+    loadMoreHistory, revealPrivateKeys, doSwitchAccount, doChangePinForWallet,
+    doDeriveAccount, showImportAnother, showImportOptions,
+    navTo: function(a) { window.location.href = a; },
+    openTab: function(a) { window.open(a, '_blank'); },
+    selectSelf: function(a, el) { el.select(); },
+    importFiles: function(a, el) { ideImportFiles(el.files); },
+    fileMenu: function(a, el, e) { ideFileMenu(e, a); },
+    renameAccount: function(a, el) { doRenameAccount(el.getAttribute('data-arg'), el.getAttribute('data-name')); },
+    pickWallet: function(a, el) { pickWallet(el); }
+  };
+  function run(e, attr) {
+    var el = e.target.closest('[' + attr + ']');
+    if (!el) return;
+    var fn = actions[el.getAttribute(attr)];
+    if (!fn) return;
+    if (el.getAttribute('data-prevent') === '1') e.preventDefault();
+    fn(el.getAttribute('data-arg'), el, e);
+  }
+  document.addEventListener('click', function(e) { run(e, 'data-action'); });
+  document.addEventListener('change', function(e) { run(e, 'data-change'); });
+  document.addEventListener('input', function(e) { run(e, 'data-input'); });
+  document.addEventListener('contextmenu', function(e) { run(e, 'data-context'); });
+  document.addEventListener('submit', function(e) { if (e.target.closest('[data-nosubmit]')) e.preventDefault(); });
+  var ed = $('ct-source');
+  if (ed) ed.addEventListener('scroll', editorSync);
+}
+
+wireDelegation();
 initEditor();
 init();

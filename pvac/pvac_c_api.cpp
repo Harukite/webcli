@@ -15,6 +15,19 @@
 #define RP(h) (reinterpret_cast<pvac::RangeProof*>(h))
 #define ARP(h) (reinterpret_cast<pvac::AggregatedRangeProof*>(h))
 
+static uint8_t* copy_bytes(const std::vector<uint8_t>& buf, size_t* len) noexcept {
+    if (len)
+        *len = 0;
+    if (!len || buf.empty())
+        return nullptr;
+    auto* out = static_cast<uint8_t*>(std::malloc(buf.size()));
+    if (!out)
+        return nullptr;
+    std::memcpy(out, buf.data(), buf.size());
+    *len = buf.size();
+    return out;
+}
+
 extern "C" {
 
 pvac_params pvac_default_params(void) {
@@ -190,16 +203,11 @@ int pvac_verify_zero_bound(pvac_pubkey pk, pvac_cipher ct, pvac_zero_proof proof
     pvac::RistrettoPoint commit;
     std::memcpy(commit.data(), amount_commitment, 32);
     try {
-
-        // !!!!!
         pvac::ExtPoint decoded_commit;
         if (!pvac::rist_decode(decoded_commit, commit))
             return 0;
         return pvac::verify_zero_bound(*PK(pk), *CT(ct), *ZP(proof), commit) ? 1 : 0;
     } catch (...) {
-
-
-
         return 0;
     }
 }
@@ -244,11 +252,13 @@ int pvac_verify_range(pvac_pubkey pk, pvac_cipher ct, pvac_range_proof proof) {
 }
 
 uint8_t* pvac_serialize_cipher(pvac_cipher ct, size_t* len) {
-    auto buf = pvac_ser::serialize_cipher(*CT(ct));
-    *len = buf.size();
-    auto* out = (uint8_t*)std::malloc(buf.size());
-    std::memcpy(out, buf.data(), buf.size());
-    return out;
+    try {
+        return copy_bytes(pvac_ser::serialize_cipher(*CT(ct)), len);
+    } catch (...) {
+        if (len)
+            *len = 0;
+        return nullptr;
+    }
 }
 
 pvac_cipher pvac_deserialize_cipher(const uint8_t* data, size_t len) {
@@ -266,11 +276,13 @@ pvac_cipher pvac_deserialize_cipher(const uint8_t* data, size_t len) {
 }
 
 uint8_t* pvac_serialize_pubkey(pvac_pubkey pk, size_t* len) {
-    auto buf = pvac_ser::serialize_pubkey(*PK(pk));
-    *len = buf.size();
-    auto* out = (uint8_t*)std::malloc(buf.size());
-    std::memcpy(out, buf.data(), buf.size());
-    return out;
+    try {
+        return copy_bytes(pvac_ser::serialize_pubkey(*PK(pk)), len);
+    } catch (...) {
+        if (len)
+            *len = 0;
+        return nullptr;
+    }
 }
 
 pvac_pubkey pvac_deserialize_pubkey(const uint8_t* data, size_t len) {
@@ -288,11 +300,13 @@ pvac_pubkey pvac_deserialize_pubkey(const uint8_t* data, size_t len) {
 }
 
 uint8_t* pvac_serialize_seckey(pvac_seckey sk, size_t* len) {
-    auto buf = pvac_ser::serialize_seckey(*SK(sk));
-    *len = buf.size();
-    auto* out = (uint8_t*)std::malloc(buf.size());
-    std::memcpy(out, buf.data(), buf.size());
-    return out;
+    try {
+        return copy_bytes(pvac_ser::serialize_seckey(*SK(sk)), len);
+    } catch (...) {
+        if (len)
+            *len = 0;
+        return nullptr;
+    }
 }
 
 pvac_seckey pvac_deserialize_seckey(const uint8_t* data, size_t len) {
@@ -310,13 +324,15 @@ pvac_seckey pvac_deserialize_seckey(const uint8_t* data, size_t len) {
 }
 
 uint8_t* pvac_serialize_zero_proof(pvac_zero_proof zp, size_t* len) {
-
-    pvac_ser::Writer w;
-    pvac_ser::write_zero_proof_raw(w, *ZP(zp));
-    *len = w.buf.size();
-    auto* out = (uint8_t*)std::malloc(w.buf.size());
-    std::memcpy(out, w.buf.data(), w.buf.size());
-    return out;
+    try {
+        pvac_ser::Writer w;
+        pvac_ser::write_zero_proof_raw(w, *ZP(zp));
+        return copy_bytes(w.buf, len);
+    } catch (...) {
+        if (len)
+            *len = 0;
+        return nullptr;
+    }
 }
 
 pvac_zero_proof pvac_deserialize_zero_proof(const uint8_t* data, size_t len) {
@@ -340,11 +356,13 @@ pvac_zero_proof pvac_deserialize_zero_proof(const uint8_t* data, size_t len) {
 }
 
 uint8_t* pvac_serialize_range_proof(pvac_range_proof rp, size_t* len) {
-    auto buf = pvac_ser::serialize_range_proof(*RP(rp));
-    *len = buf.size();
-    auto* out = (uint8_t*)std::malloc(buf.size());
-    std::memcpy(out, buf.data(), buf.size());
-    return out;
+    try {
+        return copy_bytes(pvac_ser::serialize_range_proof(*RP(rp)), len);
+    } catch (...) {
+        if (len)
+            *len = 0;
+        return nullptr;
+    }
 }
 
 pvac_range_proof pvac_deserialize_range_proof(const uint8_t* data, size_t len) {
@@ -377,11 +395,13 @@ int pvac_verify_aggregated_range(pvac_pubkey pk, pvac_cipher ct, pvac_agg_range_
 }
 
 uint8_t* pvac_serialize_agg_range_proof(pvac_agg_range_proof arp, size_t* len) {
-    auto buf = pvac_ser::serialize_agg_range_proof(*ARP(arp));
-    *len = buf.size();
-    auto* out = (uint8_t*)std::malloc(buf.size());
-    std::memcpy(out, buf.data(), buf.size());
-    return out;
+    try {
+        return copy_bytes(pvac_ser::serialize_agg_range_proof(*ARP(arp)), len);
+    } catch (...) {
+        if (len)
+            *len = 0;
+        return nullptr;
+    }
 }
 
 pvac_agg_range_proof pvac_deserialize_agg_range_proof(const uint8_t* data, size_t len) {

@@ -60,6 +60,7 @@ extern "C" {
 }
 
 #include "crypto_utils.hpp"
+#include "sanitize.hpp"
 #include "wallet.hpp"
 #include "rpc_client.hpp"
 #include "lib/circle_hfhe_receipt.hpp"
@@ -216,7 +217,13 @@ static bool is_allowed_webcli_origin(const std::string& origin, int port) {
 }
 
 static bool webcli_request_allowed(const httplib::Request& req, int port, std::string& reason) {
-    if (!starts_with(req.path, "/api/")) return true;
+    if (!starts_with(req.path, "/api/")) {
+        if (req.method != "GET" && req.method != "HEAD" && req.method != "OPTIONS") {
+            reason = "non-GET on non-api path";
+            return false;
+        }
+        return true;
+    }
 
     std::string host = req.get_header_value("Host");
     if (!host.empty() && !is_loopback_host(host, port)) {
@@ -1124,6 +1131,23 @@ static void init_wallet_subsystems() {
         return; \
     }
 
+static bool wallet_pin_ok(const json& body, httplib::Response& res) {
+    std::string pin = body.value("pin", "");
+    if (pin.empty()) {
+        res.status = 403;
+        res.set_content(err_json("PIN required to authorize this operation").dump(), "application/json");
+        return false;
+    }
+    try {
+        octra::load_wallet_encrypted(g_wallet_path, pin);
+    } catch (...) {
+        res.status = 403;
+        res.set_content(err_json("wrong PIN").dump(), "application/json");
+        return false;
+    }
+    return true;
+}
+
 #define PVAC_GUARD \
     if (!g_pvac_ok) { \
         res.status = 500; \
@@ -1211,7 +1235,7 @@ int main(int argc, char** argv) {
         } else {
             res.set_header("Content-Security-Policy",
                 "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline'; "
+                "script-src 'self'; "
                 "style-src 'self' 'unsafe-inline'; "
                 "img-src 'self' data: https:; "
                 "connect-src 'self' http://127.0.0.1:* http://178.62.60.204:8090 https://*.octra.network https://*.publicnode.com https://*.infura.io wss: ws:; "
@@ -1869,7 +1893,7 @@ int main(int argc, char** argv) {
                     served = true;
                 }
             }
-            if (!served && page_cached) {
+            if (!served && offset > 0 && page_cached) {
                 txs = g_txcache.load_page(addr, limit, offset);
                 rejected = offset == 0 ? runtime.rejected : json::array();
                 total = cached_total;
@@ -2133,6 +2157,7 @@ int main(int argc, char** argv) {
             res.set_content(err_json("invalid json").dump(), "application/json");
             return;
         }
+        if (!wallet_pin_ok(body, res)) return;
         std::string to = body.value("to", "");
         if (to.empty() || to.size() != 47 || to.substr(0, 3) != "oct") {
             res.status = 400;
@@ -2165,6 +2190,9 @@ int main(int argc, char** argv) {
     svr.Post("/api/key_switch", [](const httplib::Request& req, httplib::Response& res) {
         WALLET_GUARD
         std::lock_guard<std::mutex> lock(g_mtx);
+        json body;
+        try { body = json::parse(req.body); } catch (...) { body = json::object(); }
+        if (!wallet_pin_ok(body, res)) return;
         auto nb = get_nonce_balance();
         octra::Transaction tx;
         tx.from = g_wallet.addr;
@@ -2226,6 +2254,7 @@ int main(int argc, char** argv) {
             res.set_content(err_json("invalid amount (max 6 decimals, no extra dots)").dump(), "application/json");
             return;
         }
+        if (!wallet_pin_ok(body, res)) return;
         ensure_pvac_registered();
         uint8_t seed[32];
         octra::random_bytes(seed, 32);
@@ -2279,6 +2308,7 @@ int main(int argc, char** argv) {
             res.set_content(err_json("invalid amount (max 6 decimals, no extra dots)").dump(), "application/json");
             return;
         }
+        if (!wallet_pin_ok(body, res)) return;
         auto eb = get_encrypted_balance();
         if (eb.decrypted < raw) {
             res.status = 400;
@@ -2361,6 +2391,7 @@ int main(int argc, char** argv) {
             res.set_content(err_json("invalid json").dump(), "application/json");
             return;
         }
+        if (!wallet_pin_ok(body, res)) return;
         std::string to = body.value("to", "");
         int64_t raw = parse_amount_raw(body);
         if (to.empty() || to.size() != 47 || to.substr(0, 3) != "oct" || raw <= 0) {
@@ -3030,6 +3061,7 @@ int main(int argc, char** argv) {
             res.set_content(err_json("address and method required").dump(), "application/json");
             return;
         }
+        if (!wallet_pin_ok(body, res)) return;
         std::string params_str = "[]";
         if (body.contains("params")) params_str = body["params"].dump();
         std::string amount_str = body.value("amount", "0");
@@ -3128,6 +3160,7 @@ int main(int argc, char** argv) {
             res.set_content(err_json("method and address or circle_id required").dump(), "application/json");
             return;
         }
+        if (!wallet_pin_ok(body, res)) return;
         std::string params_str = "[]";
         if (body.contains("params")) params_str = body["params"].dump();
         std::string amount_str = body.value("amount", "0");
@@ -3167,6 +3200,7 @@ int main(int argc, char** argv) {
             res.set_content(err_json("too many calls").dump(), "application/json");
             return;
         }
+        if (!wallet_pin_ok(body, res)) return;
         json calls = json::array();
         for (size_t i = 0; i < body["calls"].size(); ++i) {
             const auto& item = body["calls"][i];
@@ -6453,6 +6487,11 @@ int main(int argc, char** argv) {
         }
         auto content_type = r.result.value("content_type", "application/octet-stream");
         auto body_b64 = r.result.value("body_b64", "");
+        if (body_b64.size() > CIRCLE_ASSET_MAX_B64_BYTES) {
+            res.status = 502;
+            res.set_content(err_json("oversized asset from rpc").dump(), "application/json");
+            return;
+        }
         auto raw = octra::base64_decode(body_b64);
         std::string body(raw.begin(), raw.end());
         res.set_header("Access-Control-Allow-Origin", "*");
@@ -6481,20 +6520,27 @@ int main(int argc, char** argv) {
     static json g_token_cache;
     static double g_token_cache_ts = 0;
     static std::string g_token_cache_addr;
+    static std::mutex g_token_cache_mtx;
 
     svr.Get("/api/tokens", [](const httplib::Request&, httplib::Response& res) {
         WALLET_GUARD
         double now = (double)time(nullptr);
-        if (!g_token_cache.empty() && g_token_cache_addr == g_wallet.addr
-            && (now - g_token_cache_ts) < 30.0) {
-            res.set_content(g_token_cache.dump(), "application/json");
-            return;
+        {
+            std::lock_guard<std::mutex> ck(g_token_cache_mtx);
+            if (!g_token_cache.empty() && g_token_cache_addr == g_wallet.addr
+                && (now - g_token_cache_ts) < 30.0) {
+                res.set_content(g_token_cache.dump(), "application/json");
+                return;
+            }
         }
         auto fast = g_rpc.tokens_by_address(g_wallet.addr);
         if (fast.ok && fast.result.contains("tokens")) {
-            g_token_cache = fast.result;
-            g_token_cache_ts = now;
-            g_token_cache_addr = g_wallet.addr;
+            {
+                std::lock_guard<std::mutex> ck(g_token_cache_mtx);
+                g_token_cache = fast.result;
+                g_token_cache_ts = now;
+                g_token_cache_addr = g_wallet.addr;
+            }
             res.set_content(fast.result.dump(), "application/json");
             return;
         }
@@ -6527,8 +6573,8 @@ int main(int argc, char** argv) {
                     ? dr.result.value("value", "0") : "0";
                 json tok;
                 tok["address"] = addr;
-                tok["name"] = name;
-                tok["symbol"] = sym;
+                tok["name"] = sanitize_display(name, 32);
+                tok["symbol"] = sanitize_display(sym, 16);
                 tok["total_supply"] = supply;
                 tok["balance"] = bal;
                 tok["decimals"] = decimals;
@@ -6540,9 +6586,12 @@ int main(int argc, char** argv) {
         j["tokens"] = tokens;
         j["count"] = tokens.size();
         j["wallet_address"] = g_wallet.addr;
-        g_token_cache = j;
-        g_token_cache_ts = now;
-        g_token_cache_addr = g_wallet.addr;
+        {
+            std::lock_guard<std::mutex> ck(g_token_cache_mtx);
+            g_token_cache = j;
+            g_token_cache_ts = now;
+            g_token_cache_addr = g_wallet.addr;
+        }
         res.set_content(j.dump(), "application/json");
     });
 
@@ -6555,6 +6604,7 @@ int main(int argc, char** argv) {
             res.set_content(err_json("invalid json").dump(), "application/json");
             return;
         }
+        if (!wallet_pin_ok(body, res)) return;
         std::string token = body.value("token", "");
         std::string to = body.value("to", "");
         std::string amount_str = body.value("amount", "");
@@ -6602,6 +6652,7 @@ int main(int argc, char** argv) {
             res.set_content(err_json("invalid json").dump(), "application/json");
             return;
         }
+        if (!wallet_pin_ok(body, res)) return;
         std::string new_rpc = body.value("rpc_url", "");
         std::string new_explorer = body.value("explorer_url", "");
         std::string new_bridge_signer = body.value("bridge_signer_url", "");
